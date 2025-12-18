@@ -9,6 +9,10 @@
 
 using namespace std;
 
+bool starts_with(const std::string &s, const std::string &prefix) {
+  return s.size() >= prefix.size() && s.compare(0, prefix.size(), prefix) == 0;
+}
+
 int rgw_opa_authorize(RGWOp *& op,
                       req_state * const s)
 {
@@ -53,8 +57,22 @@ int rgw_opa_authorize(RGWOp *& op,
   if (s->object) {
     jf.dump_string("object_name", s->object->get_name().c_str());
   }
+  std::string subuser;
   if (s->auth.identity) {
     jf.dump_string("subuser", s->auth.identity->get_subuser().c_str());
+    subuser = s->auth.identity->get_subuser();
+  }
+  if (s->cct->_conf->rgw_opa_authorize_subuser_only) {
+    if (subuser.empty()) {
+      ldpp_dout(op, 2) << "OPA bypassing request: OPA authorizing subuser only, but no subuser found in request" << dendl;
+      return 0;
+    }
+    std::string prefix_subuser_id = s->cct->_conf->rgw_opa_authorize_subuser_id_prefix;
+    if (!starts_with(subuser, prefix_subuser_id)) {
+      ldpp_dout(op, 2) << "OPA bypassing request: OPA authorizing subuser only, but subuser " << subuser << " does not match prefix " 
+      << prefix_subuser_id << dendl;
+      return 0;
+    }
   }
   if (s->user) {
     jf.dump_object("user_info", s->user->get_info());
@@ -62,6 +80,21 @@ int rgw_opa_authorize(RGWOp *& op,
   if (s->bucket) {
     jf.dump_object("bucket_info", s->bucket->get_info());
   }
+  const char *client_ip = nullptr;
+  const char *remote_addr = s->info.env->get("REMOTE_ADDR");
+  const char *real_ip = s->info.env->get("HTTP_X_REAL_IP");
+  const char *forwarded_for = s->info.env->get("HTTP_X_FORWARDED_FOR");
+  if (remote_addr) {
+    client_ip = remote_addr;
+  } else if (real_ip) {
+    client_ip = real_ip;
+  } else if (forwarded_for) {
+    client_ip = forwarded_for;
+  }
+  if (client_ip) {
+    jf.dump_string("client_ip", client_ip);
+  }
+
   jf.close_section();
   jf.close_section();
 
@@ -85,7 +118,12 @@ int rgw_opa_authorize(RGWOp *& op,
   }
 
   bool opa_result;
-  JSONDecoder::decode_json("result", opa_result, &parser);
+  try {
+    JSONDecoder::decode_json("result", opa_result, &parser);
+  } catch (JSONDecoder::err& err) {
+    ldpp_dout(op, 0) << "OPA response missing result field" << dendl;
+    return -EINVAL;
+  }
 
   if (opa_result == false) {
     ldpp_dout(op, 2) << "OPA rejecting request" << dendl;

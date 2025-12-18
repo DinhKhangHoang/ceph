@@ -98,6 +98,7 @@ if(NOT MSVC)
     -Wignored-qualifiers
     -Wpointer-arith
     -Werror=format-security
+    -Wno-error=unused-function
     -Winit-self
     -Wno-unknown-pragmas)
   add_compile_options($<$<COMPILE_LANGUAGE:CXX>:-Wnon-virtual-dtor>)

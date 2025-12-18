@@ -979,6 +979,21 @@ options:
   services:
   - rgw
   with_legacy: true
+- name: rgw_opa_authorize_subuser_only
+  type: bool
+  level: advanced
+  desc: Does OPA be used to authorize subuser 's request only.
+  default: false
+  services:
+  - rgw
+  with_legacy: true
+- name: rgw_opa_authorize_subuser_id_prefix
+  type: str
+  level: advanced
+  desc: OPA only authorize subuser whose id start with.
+  services:
+  - rgw
+  with_legacy: true
 - name: rgw_admin_entry
   type: str
   level: advanced

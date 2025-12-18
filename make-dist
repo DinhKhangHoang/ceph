@@ -74,7 +74,7 @@ download_boost() {
     shift
     boost_version_underscore=$(echo $boost_version | sed 's/\./_/g')
     boost_fname=boost_${boost_version_underscore}.tar.bz2
-    download_from $boost_fname $boost_sha256 $*
+    # download_from $boost_fname $boost_sha256 $*
     tar xjf $boost_fname -C src \
         --exclude="$boost_version_underscore/libs/*/doc" \
         --exclude="$boost_version_underscore/libs/*/example" \
