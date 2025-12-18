@@ -9,6 +9,10 @@
 
 using namespace std;
 
+bool starts_with(const std::string &s, const std::string &prefix) {
+  return s.size() >= prefix.size() && s.compare(0, prefix.size(), prefix) == 0;
+}
+
 int rgw_opa_authorize(RGWOp *& op,
                       req_state * const s)
 {
@@ -53,8 +57,21 @@ int rgw_opa_authorize(RGWOp *& op,
   if (s->object) {
     jf.dump_string("object_name", s->object->get_name().c_str());
   }
+  std::string subuser;
   if (s->auth.identity) {
     jf.dump_string("subuser", s->auth.identity->get_subuser().c_str());
+    subuser = s->auth.identity->get_subuser();
+  }
+  if (s->cct->_conf->rgw_opa_authorize_subuser_only) {
+    if (subuser.empty()) {
+      ldpp_dout(op, 2) << "OPA authorizing subuser only, but no subuser found" << dendl;
+      return 0;
+    }
+    std::string prefix_subuser_id = s->cct->_conf->rgw_opa_authorize_subuser_id_prefix;
+    if (!starts_with(subuser, prefix_subuser_id)) {
+      ldpp_dout(op, 2) << "OPA authorizing subuser only, but subuser " << subuser << " does not match prefix " << prefix_subuser_id << dendl;
+      return 0;
+    }
   }
   if (s->user) {
     jf.dump_object("user_info", s->user->get_info());
